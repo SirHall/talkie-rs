@@ -30,7 +30,6 @@ pub struct Talkie
     x7 :             i16,
     x8 :             i16,
     x9 :             i16,
-    x10 :            i16,
 
     synth_rand : u16,
 }
@@ -67,7 +66,6 @@ impl Default for Talkie
             x7 :             0,
             x8 :             0,
             x9 :             0,
-            x10 :            0,
 
             synth_rand : 1,
         }
@@ -95,7 +93,7 @@ impl Talkie
         a
     }
 
-    pub fn getBits(bits : u8, voice_data : &[u8], data_idx : &mut usize, ptr_bit : &mut u8) -> u8
+    pub fn get_bits(bits : u8, voice_data : &[u8], data_idx : &mut usize, ptr_bit : &mut u8) -> u8
     {
         let mut data : u16 = (Self::rev(voice_data[*data_idx]) as u16) << 8;
         if *ptr_bit + bits > 8
@@ -119,15 +117,11 @@ impl Talkie
         let mut ptr_bit = 0u8;
         let mut data_idx = 0usize;
 
-        let mut energy = 0u8;
-
         loop
         {
-            let mut repeat = 0u8;
-
             // Read speech data, processing the variable size frames.
 
-            energy = Self::getBits(4, voice_data, &mut data_idx, &mut ptr_bit);
+            let energy : u8 = Self::get_bits(4, voice_data, &mut data_idx, &mut ptr_bit);
             if energy == 0
             {
                 // Energy = 0: rest frame
@@ -152,34 +146,34 @@ impl Talkie
             {
                 self.synth_energy = data::tms_energy[energy as usize] as u16;
 
-                repeat = Self::getBits(1, voice_data, &mut data_idx, &mut ptr_bit);
+                let repeat : u8 = Self::get_bits(1, voice_data, &mut data_idx, &mut ptr_bit);
 
                 self.synth_period =
-                    data::tms_period[Self::getBits(6, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                    data::tms_period[Self::get_bits(6, voice_data, &mut data_idx, &mut ptr_bit) as usize];
 
                 // A repeat frame uses the last coefficients
                 if repeat == 0
                 {
                     // All frames use the first 4 coefficients
-                    self.synth_k1 = data::tms_k1[Self::getBits(5, voice_data, &mut data_idx, &mut ptr_bit) as usize];
-                    self.synth_k2 = data::tms_k2[Self::getBits(5, voice_data, &mut data_idx, &mut ptr_bit) as usize];
-                    self.synth_k3 = data::tms_k3[Self::getBits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
-                    self.synth_k4 = data::tms_k4[Self::getBits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                    self.synth_k1 = data::tms_k1[Self::get_bits(5, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                    self.synth_k2 = data::tms_k2[Self::get_bits(5, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                    self.synth_k3 = data::tms_k3[Self::get_bits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                    self.synth_k4 = data::tms_k4[Self::get_bits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
                     if self.synth_period != 0
                     {
                         // Voiced frames use 6 extra coefficients.
                         self.synth_k5 =
-                            data::tms_k5[Self::getBits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                            data::tms_k5[Self::get_bits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
                         self.synth_k6 =
-                            data::tms_k6[Self::getBits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                            data::tms_k6[Self::get_bits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
                         self.synth_k7 =
-                            data::tms_k7[Self::getBits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                            data::tms_k7[Self::get_bits(4, voice_data, &mut data_idx, &mut ptr_bit) as usize];
                         self.synth_k8 =
-                            data::tms_k8[Self::getBits(3, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                            data::tms_k8[Self::get_bits(3, voice_data, &mut data_idx, &mut ptr_bit) as usize];
                         self.synth_k9 =
-                            data::tms_k9[Self::getBits(3, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                            data::tms_k9[Self::get_bits(3, voice_data, &mut data_idx, &mut ptr_bit) as usize];
                         self.synth_k10 =
-                            data::tms_k10[Self::getBits(3, voice_data, &mut data_idx, &mut ptr_bit) as usize];
+                            data::tms_k10[Self::get_bits(3, voice_data, &mut data_idx, &mut ptr_bit) as usize];
                     }
                 }
             }
@@ -193,17 +187,7 @@ impl Talkie
 
     pub fn pwm_gen(&mut self)
     {
-        let mut u0 = 0i16;
-        let mut u1 = 0i16;
-        let mut u2 = 0i16;
-        let mut u3 = 0i16;
-        let mut u4 = 0i16;
-        let mut u5 = 0i16;
-        let mut u6 = 0i16;
-        let mut u7 = 0i16;
-        let mut u8 = 0i16;
-        let mut u9 = 0i16;
-        let mut u10 = 0i16;
+        let u10 : i16;
 
         if self.synth_period != 0
         {
@@ -240,16 +224,16 @@ impl Talkie
         }
 
         // Lattice filter forward path
-        u9 = u10 - (((self.synth_k10 as i16) * self.x9) >> 7);
-        u8 = u9 - (((self.synth_k9 as i16) * self.x8) >> 7);
-        u7 = u8 - (((self.synth_k8 as i16) * self.x7) >> 7);
-        u6 = u7 - (((self.synth_k7 as i16) * self.x6) >> 7);
-        u5 = u6 - (((self.synth_k6 as i16) * self.x5) >> 7);
-        u4 = u5 - (((self.synth_k5 as i16) * self.x4) >> 7);
-        u3 = u4 - (((self.synth_k4 as i16) * self.x3) >> 7);
-        u2 = u3 - (((self.synth_k3 as i16) * self.x2) >> 7);
-        u1 = u2 - ((((self.synth_k2 as i32) * (self.x1 as i32)) >> 15) as i16);
-        u0 = u1 - ((((self.synth_k1 as i32) * (self.x0 as i32)) >> 15) as i16);
+        let u9 : i16 = u10 - (((self.synth_k10 as i16) * self.x9) >> 7);
+        let u8 : i16 = u9 - (((self.synth_k9 as i16) * self.x8) >> 7);
+        let u7 : i16 = u8 - (((self.synth_k8 as i16) * self.x7) >> 7);
+        let u6 : i16 = u7 - (((self.synth_k7 as i16) * self.x6) >> 7);
+        let u5 : i16 = u6 - (((self.synth_k6 as i16) * self.x5) >> 7);
+        let u4 : i16 = u5 - (((self.synth_k5 as i16) * self.x4) >> 7);
+        let u3 : i16 = u4 - (((self.synth_k4 as i16) * self.x3) >> 7);
+        let u2 : i16 = u3 - (((self.synth_k3 as i16) * self.x2) >> 7);
+        let u1 : i16 = u2 - ((((self.synth_k2 as i32) * (self.x1 as i32)) >> 15) as i16);
+        let mut u0 : i16 = u1 - ((((self.synth_k1 as i32) * (self.x0 as i32)) >> 15) as i16);
 
         // Output clamp
         u0 = u0.clamp(-512, 511);
